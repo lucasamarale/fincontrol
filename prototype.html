@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FinControl — Protótipo Hi-Fi Navegável</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{background:#e8ede9;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px}
+.wrap{display:flex;flex-direction:column;align-items:center;gap:14px}
+.app-label{color:#6b7280;font-size:11px;letter-spacing:2px;text-transform:uppercase}
+.phone{width:390px;height:844px;background:#f2f4f3;border-radius:48px;overflow:hidden;position:relative;box-shadow:0 0 0 10px #1c1c1e,0 0 0 12px #3a3a3c,0 40px 80px rgba(0,0,0,.7);display:flex;flex-direction:column}
+.phone::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#1c1c1e;border-radius:0 0 20px 20px;z-index:99}
+
+/* screens */
+.screen{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden}
+.screen.active{display:flex}
+
+/* status bar */
+.sb{height:50px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 8px;flex-shrink:0;position:relative;z-index:10}
+.sb .time{font-size:15px;font-weight:600;letter-spacing:-.3px}
+.sb .icons{display:flex;gap:6px;align-items:center}
+
+/* scrollable area */
+.scroll{flex:1;overflow-y:auto}
+.scroll::-webkit-scrollbar{display:none}
+
+/* cards */
+.card{background:#fff;border-radius:18px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+
+/* bottom nav */
+.bnav{height:80px;background:#fff;border-top:1px solid #f0f0f0;display:flex;align-items:center;padding:0 4px 16px;flex-shrink:0;box-shadow:0 -4px 16px rgba(0,0,0,.04)}
+.ni{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0;cursor:pointer}
+.ni span{font-size:10px;font-weight:500}
+.ni.active span{color:#10b981;font-weight:700}
+.ni:not(.active) span{color:#9ca3af}
+.fab{width:52px;height:52px;background:#10b981;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 16px rgba(16,185,129,.4);flex-shrink:0}
+
+/* form inputs */
+.finput{display:flex;align-items:center;gap:10px;background:#f9fafb;border:1.5px solid #e5e7eb;border-radius:14px;padding:13px 16px}
+.finput input{flex:1;border:none;background:none;outline:none;font-size:15px;color:#111827;font-family:inherit}
+
+/* buttons */
+.btn-g{background:#10b981;color:#fff;border:none;border-radius:14px;padding:17px;font-size:16px;font-weight:700;cursor:pointer;width:100%;font-family:inherit;box-shadow:0 4px 16px rgba(16,185,129,.4)}
+.btn-outline{background:none;border:none;color:#6b7280;font-size:14px;cursor:pointer;font-family:inherit;padding:8px}
+
+/* ring chart */
+.ring-wrap{position:relative;flex-shrink:0}
+.ring-inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+
+/* tab btns */
+.tabs{display:flex;background:#f9fafb;border-radius:12px;padding:4px;gap:4px}
+.tab{flex:1;padding:10px;border-radius:9px;border:none;cursor:pointer;font-size:14px;font-weight:700;font-family:inherit;transition:all .2s}
+.tab.desp.on{background:#fff;color:#ef4444;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.tab.rec.on{background:#fff;color:#10b981;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.tab:not(.on){background:transparent;color:#9ca3af}
+
+/* filter pills */
+.pill{padding:7px 14px;border-radius:20px;border:none;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit}
+.pill.on{background:#10b981;color:#fff;box-shadow:0 2px 8px rgba(16,185,129,.4)}
+.pill:not(.on){background:#fff;color:#6b7280;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+
+/* hero gradient */
+.hero{background:linear-gradient(160deg,#064e3b,#10b981);border-radius:0 0 36px 36px}
+
+/* trans item */
+.ti{background:#fff;border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:12px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.04);cursor:pointer}
+.ti-info{flex:1;min-width:0}
+.ti-name{font-size:14px;font-weight:600;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ti-cat{font-size:12px;color:#6b7280}
+.ti-val{font-size:14px;font-weight:700;flex-shrink:0}
+.out{color:#ef4444}
+.inc{color:#10b981}
+
+/* section header */
+.sec-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.sec-t{font-size:15px;font-weight:700;color:#111827}
+.sec-l{font-size:13px;color:#10b981;font-weight:600;cursor:pointer}
+
+/* date divider */
+.dd{display:flex;justify-content:space-between;padding:10px 4px 6px}
+.dd span{font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="app-label">FinControl · Protótipo Hi-Fi · Etapa 3</div>
+  <div class="phone" id="phone">
+
+    <!-- ═══ S1: LOGIN ═══ -->
+    <div id="s-login" class="screen active">
+      <div class="hero" style="padding-bottom:32px;flex-shrink:0">
+        <div class="sb" style="color:#fff">
+          <span class="time">9:41</span>
+          <div class="icons">
+            <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#fff"/><rect x="5" y="5" width="3" height="7" rx="1" fill="#fff"/><rect x="10" y="2" width="3" height="10" rx="1" fill="#fff"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#fff"/></svg>
+            <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 9.5 a.8.8 0 1 0 .01 0z" fill="#fff"/><path d="M4.5 7 Q8 3.5 11.5 7" stroke="#fff" stroke-width="1.4" fill="none" stroke-linecap="round"/><path d="M2 4.5 Q8 -1 14 4.5" stroke="#fff" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>
+            <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".6" y=".6" width="22.8" height="11.8" rx="3.2" stroke="#fff" stroke-width="1.2" fill="none"/><rect x="2" y="2" width="18" height="9" rx="2" fill="#fff"/><path d="M24.5 4.3 C26 4.3 26 8.7 24.5 8.7" stroke="#fff" stroke-width="1.1" fill="none" stroke-linecap="round"/></svg>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding-top:4px">
+          <!-- Logo -->
+          <div style="width:84px;height:84px;border-radius:28px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;border:1.5px solid rgba(255,255,255,.28);box-shadow:0 8px 32px rgba(0,0,0,.22)">
+            <svg width="50" height="50" viewBox="0 0 50 50" fill="none">
+              <ellipse cx="25" cy="38" rx="13" ry="5" fill="rgba(255,255,255,.2)"/>
+              <ellipse cx="25" cy="36" rx="13" ry="5" fill="rgba(255,255,255,.15)" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
+              <ellipse cx="25" cy="34" rx="13" ry="5" fill="rgba(255,255,255,.2)" stroke="rgba(255,255,255,.45)" stroke-width="1.2"/>
+              <ellipse cx="25" cy="32" rx="13" ry="5" fill="rgba(255,255,255,.28)" stroke="rgba(255,255,255,.6)" stroke-width="1.2"/>
+              <path d="M25 31 Q25 20 25 14" stroke="rgba(255,255,255,.9)" stroke-width="2" stroke-linecap="round"/>
+              <path d="M25 22 Q18 18 16 12 Q22 12 25 18" fill="rgba(255,255,255,.82)"/>
+              <path d="M25 18 Q32 14 34 8 Q28 8 25 14" fill="#fff"/>
+              <circle cx="36" cy="14" r="4" fill="#34d399"/>
+              <circle cx="36" cy="14" r="2.2" fill="#fff"/>
+              <text x="25" y="34.5" text-anchor="middle" font-size="7" font-weight="700" fill="rgba(16,185,129,.9)" font-family="-apple-system,sans-serif">R$</text>
+            </svg>
+          </div>
+          <div style="color:#fff;font-size:26px;font-weight:800;letter-spacing:-.5px">FinControl</div>
+          <div style="color:rgba(255,255,255,.7);font-size:14px">Controle financeiro inteligente</div>
+        </div>
+      </div>
+      <div class="scroll" style="padding:28px 28px">
+        <div style="font-size:22px;font-weight:800;color:#111827;margin-bottom:4px">Bem-vindo de volta</div>
+        <div style="font-size:14px;color:#6b7280;margin-bottom:24px">Entre para continuar gerenciando suas finanças.</div>
+        <div style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">E-MAIL</div>
+        <div class="finput" style="margin-bottom:14px">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+          <input type="email" value="demo@fincontrol.app" placeholder="seu@email.com">
+        </div>
+        <div style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">SENHA</div>
+        <div class="finput" style="margin-bottom:6px">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <input type="password" value="12345678" placeholder="••••••••">
+        </div>
+        <div onclick="goTo('esqueci')" style="text-align:right;color:#10b981;font-size:13px;font-weight:600;margin-bottom:24px;cursor:pointer">Esqueci minha senha</div>
+        <button class="btn-g" onclick="goTo('dash')">Entrar</button>
+        <div style="text-align:center;color:#9ca3af;font-size:13px;margin-top:16px">
+          Não tem uma conta? <span onclick="goTo('criar')" style="color:#10b981;font-weight:600;cursor:pointer">Criar conta gratuita</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ S2: ESQUECI SENHA ═══ -->
+    <div id="s-esqueci" class="screen">
+      <div class="hero" style="padding-bottom:28px;flex-shrink:0">
+        <div class="sb" style="color:#fff">
+          <span class="time">9:41</span>
+          <div class="icons">
+            <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#fff"/><rect x="5" y="5" width="3" height="7" rx="1" fill="#fff"/><rect x="10" y="2" width="3" height="10" rx="1" fill="#fff"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#fff"/></svg>
+            <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 9.5 a.8.8 0 1 0 .01 0z" fill="#fff"/><path d="M4.5 7 Q8 3.5 11.5 7" stroke="#fff" stroke-width="1.4" fill="none" stroke-linecap="round"/><path d="M2 4.5 Q8 -1 14 4.5" stroke="#fff" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>
+            <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".6" y=".6" width="22.8" height="11.8" rx="3.2" stroke="#fff" stroke-width="1.2" fill="none"/><rect x="2" y="2" width="18" height="9" rx="2" fill="#fff"/><path d="M24.5 4.3 C26 4.3 26 8.7 24.5 8.7" stroke="#fff" stroke-width="1.1" fill="none" stroke-linecap="round"/></svg>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;padding:0 20px 4px">
+          <div onclick="goTo('login')" style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;cursor:pointer">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </div>
+          <span style="color:#fff;font-size:17px;font-weight:700">Recuperar senha</span>
+        </div>
+      </div>
+      <div class="scroll" style="padding:32px 28px">
+        <div style="width:64px;height:64px;border-radius:50%;background:#d1fae5;display:flex;align-items:center;justify-content:center;margin-bottom:20px">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        </div>
+        <div style="font-size:22px;font-weight:800;color:#111827;margin-bottom:6px">Esqueceu sua senha?</div>
+        <div style="font-size:14px;color:#6b7280;margin-bottom:28px;line-height:1.5">Digite seu e-mail e enviaremos um link para você criar uma nova senha.</div>
+        <div style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">E-MAIL</div>
+        <div class="finput" style="margin-bottom:24px">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+          <input type="email" placeholder="seu@email.com">
+        </div>
+        <button class="btn-g" onclick="goTo('login')">Enviar link de recuperação</button>
+        <div style="text-align:center;margin-top:14px">
+          <button class="btn-outline" onclick="goTo('login')">Voltar ao login</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ S3: CRIAR CONTA ═══ -->
+    <div id="s-criar" class="screen">
+      <div class="hero" style="padding-bottom:24px;flex-shrink:0">
+        <div class="sb" style="color:#fff">
+          <span class="time">9:41</span>
+          <div class="icons">
+            <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#fff"/><rect x="5" y="5" width="3" height="7" rx="1" fill="#fff"/><rect x="10" y="2" width="3" height="10" rx="1" fill="#fff"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#fff"/></svg>
+            <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 9.5 a.8.8 0 1 0 .01 0z" fill="#fff"/><path d="M4.5 7 Q8 3.5 11.5 7" stroke="#fff" stroke-width="1.4" fill="none" stroke-linecap="round"/><path d="M2 4.5 Q8 -1 14 4.5" stroke="#fff" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>
+            <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".6" y=".6" width="22.8" height="11.8" rx="3.2" stroke="#fff" stroke-width="1.2" fill="none"/><rect x="2" y="2" width="18" height="9" rx="2" fill="#fff"/><path d="M24.5 4.3 C26 4.3 26 8.7 24.5 8.7" stroke="#fff" stroke-width="1.1" fill="none" stroke-linecap="round"/></svg>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;padding:0 20px 4px">
+          <div onclick="goTo('login')" style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;cursor:pointer">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </div>
+          <span style="color:#fff;font-size:17px;font-weight:700">Criar conta gratuita</span>
+        </div>
+      </div>
+      <div class="scroll" style="padding:20px 28px 28px">
+        <div style="font-size:14px;color:#6b7280;margin-bottom:20px;line-height:1.5">Preencha seus dados para começar a controlar suas finanças.</div>
+        <div style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">NOME COMPLETO</div>
+        <div class="finput" style="margin-bottom:14px"><input type="text" placeholder="João da Silva"></div>
+        <div style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">E-MAIL</div>
+        <div class="finput" style="margin-bottom:14px"><input type="email" placeholder="seu@email.com"></div>
+        <div style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">SENHA</div>
+        <div class="finput" style="margin-bottom:14px"><input type="password" placeholder="Mínimo 6 caracteres"></div>
+        <div style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">CONFIRMAR SENHA</div>
+        <div class="finput" style="margin-bottom:22px"><input type="password" placeholder="Repita a senha"></div>
+        <button class="btn-g" onclick="goTo('dash')">Criar conta</button>
+        <div style="text-align:center;color:#9ca3af;font-size:12px;margin-top:14px;line-height:1.5">
+          Ao criar uma conta você concorda com os <span style="color:#10b981;font-weight:600;cursor:pointer">Termos de Uso</span> e <span style="color:#10b981;font-weight:600;cursor:pointer">Política de Privacidade</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ S4: DASHBOARD ═══ -->
+    <div id="s-dash" class="screen">
+      <div class="sb" style="background:#f2f4f3;color:#111827"><span class="time">9:41</span>
+        <div class="icons"><svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#111827"/><rect x="5" y="5" width="3" height="7" rx="1" fill="#111827"/><rect x="10" y="2" width="3" height="10" rx="1" fill="#111827"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#111827"/></svg>
+        <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 9.5 a.8.8 0 1 0 .01 0z" fill="#111827"/><path d="M4.5 7 Q8 3.5 11.5 7" stroke="#111827" stroke-width="1.4" fill="none" stroke-linecap="round"/><path d="M2 4.5 Q8 -1 14 4.5" stroke="#111827" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>
+        <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".6" y=".6" width="22.8" height="11.8" rx="3.2" stroke="#111827" stroke-width="1.2" fill="none"/><rect x="2" y="2" width="18" height="9" rx="2" fill="#111827"/><path d="M24.5 4.3 C26 4.3 26 8.7 24.5 8.7" stroke="#111827" stroke-width="1.1" fill="none" stroke-linecap="round"/></svg></div>
+      </div>
+      <div class="scroll" style="padding:0 16px 16px">
+        <!-- greeting -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+          <div><div style="font-size:13px;color:#6b7280">Olá, bem-vindo! 👋</div><div style="font-size:18px;font-weight:800;color:#111827">Usuário Demo</div></div>
+          <div style="width:42px;height:42px;border-radius:50%;background:#10b981;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px">SH</div>
+        </div>
+        <!-- balance card -->
+        <div style="background:linear-gradient(135deg,#064e3b,#10b981);border-radius:22px;padding:22px;margin-bottom:16px;box-shadow:0 8px 32px rgba(16,185,129,.4)">
+          <div style="font-size:13px;color:rgba(255,255,255,.75);margin-bottom:6px">Saldo disponível</div>
+          <div style="color:#fff;font-size:34px;font-weight:900;letter-spacing:-1.5px;margin-bottom:14px">
+            <span style="font-size:15px;font-weight:600;vertical-align:super;margin-right:3px">R$</span>1.247<span style="font-size:20px;font-weight:600">,50</span>
+          </div>
+          <div style="display:flex;gap:22px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+              </div>
+              <div><div style="font-size:10px;color:rgba(255,255,255,.65)">Receitas</div><div style="font-size:14px;font-weight:700;color:#fff">R$ 4.600</div></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fca5a5" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+              </div>
+              <div><div style="font-size:10px;color:rgba(255,255,255,.65)">Despesas</div><div style="font-size:14px;font-weight:700;color:#fff">R$ 3.352</div></div>
+            </div>
+          </div>
+        </div>
+        <!-- budgets -->
+        <div class="sec-h"><div class="sec-t">Orçamentos</div><span class="sec-l" onclick="goTo('orc')">Ver todos</span></div>
+        <div style="display:flex;gap:10px;margin-bottom:20px;overflow-x:auto;padding-bottom:4px">
+          <!-- Alimentação 70% -->
+          <div onclick="goTo('orc')" style="background:#fff;border-radius:16px;padding:12px 10px;min-width:78px;display:flex;flex-direction:column;align-items:center;gap:5px;box-shadow:0 2px 8px rgba(0,0,0,.06);cursor:pointer;flex-shrink:0">
+            <div style="position:relative;width:52px;height:52px">
+              <svg width="52" height="52" style="transform:rotate(-90deg)"><circle cx="26" cy="26" r="21" fill="none" stroke="#e5e7eb" stroke-width="5"/><circle cx="26" cy="26" r="21" fill="none" stroke="#f59e0b" stroke-width="5" stroke-dasharray="131.9" stroke-dashoffset="39.6" stroke-linecap="round"/></svg>
+              <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#111827">70%</div>
+            </div>
+            <div style="font-size:10px;font-weight:600;color:#111827;text-align:center">Aliment.</div>
+          </div>
+          <!-- Transporte 60% -->
+          <div onclick="goTo('orc')" style="background:#fff;border-radius:16px;padding:12px 10px;min-width:78px;display:flex;flex-direction:column;align-items:center;gap:5px;box-shadow:0 2px 8px rgba(0,0,0,.06);cursor:pointer;flex-shrink:0">
+            <div style="position:relative;width:52px;height:52px">
+              <svg width="52" height="52" style="transform:rotate(-90deg)"><circle cx="26" cy="26" r="21" fill="none" stroke="#e5e7eb" stroke-width="5"/><circle cx="26" cy="26" r="21" fill="none" stroke="#3b82f6" stroke-width="5" stroke-dasharray="131.9" stroke-dashoffset="52.8" stroke-linecap="round"/></svg>
+              <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#111827">60%</div>
+            </div>
+            <div style="font-size:10px;font-weight:600;color:#111827;text-align:center">Transp.</div>
+          </div>
+          <!-- Lazer 95% -->
+          <div onclick="goTo('orc')" style="background:#fff;border-radius:16px;padding:12px 10px;min-width:78px;display:flex;flex-direction:column;align-items:center;gap:5px;box-shadow:0 2px 8px rgba(0,0,0,.06);cursor:pointer;flex-shrink:0">
+            <div style="position:relative;width:52px;height:52px">
+              <svg width="52" height="52" style="transform:rotate(-90deg)"><circle cx="26" cy="26" r="21" fill="none" stroke="#e5e7eb" stroke-width="5"/><circle cx="26" cy="26" r="21" fill="none" stroke="#ef4444" stroke-width="5" stroke-dasharray="131.9" stroke-dashoffset="6.6" stroke-linecap="round"/></svg>
+              <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#ef4444">95%</div>
+            </div>
+            <div style="font-size:10px;font-weight:600;color:#111827;text-align:center">Lazer</div>
+          </div>
+          <!-- Saúde 24% -->
+          <div onclick="goTo('orc')" style="background:#fff;border-radius:16px;padding:12px 10px;min-width:78px;display:flex;flex-direction:column;align-items:center;gap:5px;box-shadow:0 2px 8px rgba(0,0,0,.06);cursor:pointer;flex-shrink:0">
+            <div style="position:relative;width:52px;height:52px">
+              <svg width="52" height="52" style="transform:rotate(-90deg)"><circle cx="26" cy="26" r="21" fill="none" stroke="#e5e7eb" stroke-width="5"/><circle cx="26" cy="26" r="21" fill="none" stroke="#10b981" stroke-width="5" stroke-dasharray="131.9" stroke-dashoffset="100.2" stroke-linecap="round"/></svg>
+              <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#111827">24%</div>
+            </div>
+            <div style="font-size:10px;font-weight:600;color:#111827;text-align:center">Saúde</div>
+          </div>
+          <!-- Moradia 86% -->
+          <div onclick="goTo('orc')" style="background:#fff;border-radius:16px;padding:12px 10px;min-width:78px;display:flex;flex-direction:column;align-items:center;gap:5px;box-shadow:0 2px 8px rgba(0,0,0,.06);cursor:pointer;flex-shrink:0">
+            <div style="position:relative;width:52px;height:52px">
+              <svg width="52" height="52" style="transform:rotate(-90deg)"><circle cx="26" cy="26" r="21" fill="none" stroke="#e5e7eb" stroke-width="5"/><circle cx="26" cy="26" r="21" fill="none" stroke="#f59e0b" stroke-width="5" stroke-dasharray="131.9" stroke-dashoffset="18.5" stroke-linecap="round"/></svg>
+              <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#111827">86%</div>
+            </div>
+            <div style="font-size:10px;font-weight:600;color:#111827;text-align:center">Moradia</div>
+          </div>
+        </div>
+        <!-- today -->
+        <div class="sec-h"><div class="sec-t">Hoje</div>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </div>
+        <div class="ti" onclick="goTo('extrato')">
+          <div style="width:42px;height:42px;border-radius:12px;background:#fef3c7;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0"/></svg></div>
+          <div class="ti-info"><div class="ti-name">Supermercado Extra</div><div class="ti-cat">Alimentação · Débito</div></div>
+          <div class="ti-val out">–R$85,40</div>
+        </div>
+        <div class="ti" onclick="goTo('extrato')">
+          <div style="width:42px;height:42px;border-radius:12px;background:#eff6ff;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+          <div class="ti-info"><div class="ti-name">Uber</div><div class="ti-cat">Transporte · Pix</div></div>
+          <div class="ti-val out">–R$24,70</div>
+        </div>
+      </div>
+      <nav class="bnav">
+        <div class="ni active"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg><span>Início</span></div>
+        <div class="ni" onclick="goTo('extrato')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.8" stroke-linecap="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg><span>Extrato</span></div>
+        <div style="flex:1;display:flex;justify-content:center"><div class="fab" onclick="goTo('nova')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div></div>
+        <div class="ni" onclick="goTo('orc')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg><span>Orçamento</span></div>
+        <div class="ni" onclick="goTo('perfil')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.8" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></div>
+      </nav>
+    </div>
+
+    <!-- ═══ S5: NOVA TRANSAÇÃO ═══ -->
+    <div id="s-nova" class="screen" style="background:#f2f4f3">
+      <div style="background:#fff;border-bottom:1px solid #f0f0f0;flex-shrink:0">
+        <div class="sb" style="color:#111827"><span class="time">9:41</span>
+          <div class="icons"><svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#111827"/><rect x="5" y="5" width="3" height="7" rx="1" fill="#111827"/><rect x="10" y="2" width="3" height="10" rx="1" fill="#111827"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#111827"/></svg>
+          <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 9.5 a.8.8 0 1 0 .01 0z" fill="#111827"/><path d="M4.5 7 Q8 3.5 11.5 7" stroke="#111827" stroke-width="1.4" fill="none" stroke-linecap="round"/><path d="M2 4.5 Q8 -1 14 4.5" stroke="#111827" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>
+          <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".6" y=".6" width="22.8" height="11.8" rx="3.2" stroke="#111827" stroke-width="1.2" fill="none"/><rect x="2" y="2" width="18" height="9" rx="2" fill="#111827"/><path d="M24.5 4.3 C26 4.3 26 8.7 24.5 8.7" stroke="#111827" stroke-width="1.1" fill="none" stroke-linecap="round"/></svg></div>
+        </div>
+        <div style="display:flex;align-items:center;padding:0 16px 14px;gap:12px">
+          <div onclick="goTo('dash')" style="width:36px;height:36px;border-radius:50%;background:#f9fafb;display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+          <div style="flex:1;font-size:17px;font-weight:800;color:#111827;text-align:center">Nova Transação</div>
+          <div onclick="goTo('dash')" style="width:36px;height:36px;border-radius:50%;background:#f9fafb;display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></div>
+        </div>
+        <div style="display:flex;margin:0 16px 16px;background:#f9fafb;border-radius:12px;padding:4px;gap:4px">
+          <button class="tab desp on" id="tab-d" onclick="setTab('d')">↓ Despesa</button>
+          <button class="tab rec" id="tab-r" onclick="setTab('r')">↑ Receita</button>
+        </div>
+      </div>
+      <div id="val-disp" style="background:#111827;padding:22px 20px;text-align:center;flex-shrink:0;position:relative">
+        <div style="color:rgba(255,255,255,.4);font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">VALOR</div>
+        <div id="val-badge" style="position:absolute;top:12px;right:16px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:4px 10px;border-radius:20px">— SAÍDA</div>
+        <div style="color:#fff;font-size:52px;font-weight:900;letter-spacing:-2px;line-height:1">
+          <span style="font-size:20px;font-weight:600;vertical-align:super">R$</span>85<span style="font-size:32px;font-weight:600">,40</span>
+        </div>
+        <div style="color:rgba(255,255,255,.3);font-size:12px;margin-top:6px">Toque para editar valor</div>
+      </div>
+      <div class="scroll" style="padding:16px">
+        <div style="background:#fff;border-radius:14px;padding:12px 14px;margin-bottom:8px">
+          <div style="font-size:10px;color:#9ca3af;font-weight:600;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px">DESCRIÇÃO</div>
+          <input value="Supermercado Extra" style="border:none;outline:none;font-size:15px;color:#111827;width:100%;font-family:inherit;background:none">
+        </div>
+        <div style="background:#fff;border-radius:14px;padding:12px 14px;margin-bottom:8px">
+          <div style="font-size:10px;color:#9ca3af;font-weight:600;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">CATEGORIA</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button style="padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;background:#10b981;color:#fff">Alimentação</button>
+            <button style="padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;background:#f9fafb;color:#6b7280">Transporte</button>
+            <button style="padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;background:#f9fafb;color:#6b7280">Saúde</button>
+            <button style="padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;background:#f9fafb;color:#6b7280">Lazer</button>
+            <button style="padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;background:#f9fafb;color:#6b7280">Moradia</button>
+          </div>
+        </div>
+        <div style="background:#fff;border-radius:14px;padding:12px 14px;margin-bottom:8px">
+          <div style="font-size:10px;color:#9ca3af;font-weight:600;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">FORMA DE PAGAMENTO</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button style="padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;background:#10b981;color:#fff">Débito</button>
+            <button style="padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;background:#f9fafb;color:#6b7280">Crédito</button>
+            <button style="padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;background:#f9fafb;color:#6b7280">Pix</button>
+            <button style="padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;background:#f9fafb;color:#6b7280">Transferência</button>
+          </div>
+        </div>
+        <button class="btn-g" onclick="goTo('extrato')" style="margin-top:4px">Salvar Transação</button>
+      </div>
+    </div>
+
+    <!-- ═══ S6: EXTRATO ═══ -->
+    <div id="s-extrato" class="screen" style="background:#f2f4f3">
+      <div style="background:#fff;border-bottom:1px solid #f0f0f0;flex-shrink:0">
+        <div class="sb" style="color:#111827"><span class="time">9:41</span>
+          <div class="icons"><svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#111827"/><rect x="5" y="5" width="3" height="7" rx="1" fill="#111827"/><rect x="10" y="2" width="3" height="10" rx="1" fill="#111827"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#111827"/></svg>
+          <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 9.5 a.8.8 0 1 0 .01 0z" fill="#111827"/><path d="M4.5 7 Q8 3.5 11.5 7" stroke="#111827" stroke-width="1.4" fill="none" stroke-linecap="round"/><path d="M2 4.5 Q8 -1 14 4.5" stroke="#111827" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>
+          <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".6" y=".6" width="22.8" height="11.8" rx="3.2" stroke="#111827" stroke-width="1.2" fill="none"/><rect x="2" y="2" width="18" height="9" rx="2" fill="#111827"/><path d="M24.5 4.3 C26 4.3 26 8.7 24.5 8.7" stroke="#111827" stroke-width="1.1" fill="none" stroke-linecap="round"/></svg></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:0 20px 12px">
+          <div><div style="font-size:24px;font-weight:900;color:#111827">Extrato</div><div style="font-size:12px;color:#6b7280">10 transações em Maio</div></div>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <div style="width:38px;height:38px;background:#f9fafb;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></div>
+            <div style="width:38px;height:38px;background:#f9fafb;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="12" y1="18" x2="12" y2="18"/></svg></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;padding:0 16px 12px">
+          <div style="flex:1;background:#f9fafb;border-radius:12px;padding:10px"><div style="font-size:9px;color:#9ca3af;font-weight:700;margin-bottom:3px">RECEITAS</div><div style="font-size:13px;font-weight:800;color:#10b981">R$ 4.600</div></div>
+          <div style="flex:1;background:#f9fafb;border-radius:12px;padding:10px"><div style="font-size:9px;color:#9ca3af;font-weight:700;margin-bottom:3px">DESPESAS</div><div style="font-size:13px;font-weight:800;color:#ef4444">R$ 3.352</div></div>
+          <div style="flex:1;background:#f9fafb;border-radius:12px;padding:10px"><div style="font-size:9px;color:#9ca3af;font-weight:700;margin-bottom:3px">SALDO</div><div style="font-size:13px;font-weight:800;color:#111827">R$ 1.248</div></div>
+        </div>
+        <div style="display:flex;gap:8px;padding:0 16px 14px">
+          <button class="pill on">Todos</button>
+          <button class="pill">Receitas</button>
+          <button class="pill">Despesas</button>
+        </div>
+      </div>
+      <div class="scroll" style="padding:4px 16px 16px">
+        <div class="dd"><span>Hoje · 09/05/2026</span><span style="color:#ef4444">–R$110,10</span></div>
+        <div class="ti"><div style="width:42px;height:42px;border-radius:12px;background:#fef3c7;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0"/></svg></div><div class="ti-info"><div class="ti-name">Supermercado Extra</div><div class="ti-cat">Alimentação · Débito</div></div><div class="ti-val out">–R$85,40</div></div>
+        <div class="ti"><div style="width:42px;height:42px;border-radius:12px;background:#eff6ff;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div class="ti-info"><div class="ti-name">Uber</div><div class="ti-cat">Transporte · Pix</div></div><div class="ti-val out">–R$24,70</div></div>
+        <div class="dd"><span>Ontem · 08/05/2026</span><span style="color:#10b981">+R$760,10</span></div>
+        <div class="ti"><div style="width:42px;height:42px;border-radius:12px;background:#f0fdf4;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></div><div class="ti-info"><div class="ti-name">Freelance Design</div><div class="ti-cat">Receita · Transferência</div></div><div class="ti-val inc">+R$800,00</div></div>
+        <div class="ti"><div style="width:42px;height:42px;border-radius:12px;background:#fee2e2;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div><div class="ti-info"><div class="ti-name">Netflix</div><div class="ti-cat">Lazer · Crédito</div></div><div class="ti-val out">–R$39,90</div></div>
+        <div class="dd"><span>07/05/2026</span><span style="color:#ef4444">–R$47,30</span></div>
+        <div class="ti"><div style="width:42px;height:42px;border-radius:12px;background:#fdf4ff;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2" stroke-linecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></div><div class="ti-info"><div class="ti-name">Farmácia São Paulo</div><div class="ti-cat">Saúde · Débito</div></div><div class="ti-val out">–R$47,30</div></div>
+      </div>
+      <nav class="bnav">
+        <div class="ni" onclick="goTo('dash')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg><span>Início</span></div>
+        <div class="ni active"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg><span>Extrato</span></div>
+        <div style="flex:1;display:flex;justify-content:center"><div class="fab" onclick="goTo('nova')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div></div>
+        <div class="ni" onclick="goTo('orc')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg><span>Orçamento</span></div>
+        <div class="ni" onclick="goTo('perfil')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.8" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></div>
+      </nav>
+    </div>
+
+    <!-- ═══ S7: ORÇAMENTOS ═══ -->
+    <div id="s-orc" class="screen" style="background:#f2f4f3">
+      <div style="background:#fff;border-bottom:1px solid #f0f0f0;flex-shrink:0">
+        <div class="sb" style="color:#111827"><span class="time">9:41</span><div class="icons"><svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#111827"/><rect x="5" y="5" width="3" height="7" rx="1" fill="#111827"/><rect x="10" y="2" width="3" height="10" rx="1" fill="#111827"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#111827"/></svg><svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 9.5 a.8.8 0 1 0 .01 0z" fill="#111827"/><path d="M4.5 7 Q8 3.5 11.5 7" stroke="#111827" stroke-width="1.4" fill="none" stroke-linecap="round"/><path d="M2 4.5 Q8 -1 14 4.5" stroke="#111827" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg><svg width="27" height="13" viewBox="0 0 27 13"><rect x=".6" y=".6" width="22.8" height="11.8" rx="3.2" stroke="#111827" stroke-width="1.2" fill="none"/><rect x="2" y="2" width="18" height="9" rx="2" fill="#111827"/><path d="M24.5 4.3 C26 4.3 26 8.7 24.5 8.7" stroke="#111827" stroke-width="1.1" fill="none" stroke-linecap="round"/></svg></div></div>
+        <div style="padding:0 20px 16px"><div style="font-size:24px;font-weight:900;color:#111827">Orçamentos</div><div style="font-size:12px;color:#6b7280">Maio 2026</div></div>
+      </div>
+      <div class="scroll" style="padding:16px">
+        <!-- Big ring — Alimentação 70% -->
+        <div style="background:#fff;border-radius:22px;padding:22px;margin-bottom:14px;display:flex;flex-direction:column;align-items:center;box-shadow:0 2px 12px rgba(0,0,0,.06)">
+          <div style="font-size:14px;font-weight:700;color:#111827;margin-bottom:14px">Alimentação</div>
+          <div style="position:relative;width:130px;height:130px">
+            <svg width="130" height="130" style="transform:rotate(-90deg)"><circle cx="65" cy="65" r="52" fill="none" stroke="#e5e7eb" stroke-width="12"/><circle cx="65" cy="65" r="52" fill="none" stroke="#f59e0b" stroke-width="12" stroke-dasharray="326.7" stroke-dashoffset="98" stroke-linecap="round"/></svg>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center"><div style="font-size:26px;font-weight:900;color:#111827">70%</div></div>
+          </div>
+          <div style="font-size:17px;font-weight:800;color:#111827;margin-top:12px">R$ 420 <span style="font-size:13px;font-weight:400;color:#6b7280">de R$ 600</span></div>
+          <div style="font-size:13px;color:#6b7280;margin-top:4px">Disponível: <span style="color:#10b981;font-weight:700">R$ 180</span></div>
+        </div>
+        <!-- other budgets row -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="background:#fff;border-radius:16px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
+            <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:6px">Transporte</div>
+            <div style="height:4px;background:#e5e7eb;border-radius:2px;margin-bottom:6px"><div style="height:4px;width:60%;background:#3b82f6;border-radius:2px"></div></div>
+            <div style="font-size:14px;font-weight:800;color:#3b82f6">60%</div><div style="font-size:10px;color:#9ca3af">R$180 / R$300</div>
+          </div>
+          <div style="background:#fff;border-radius:16px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
+            <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:6px">Lazer</div>
+            <div style="height:4px;background:#e5e7eb;border-radius:2px;margin-bottom:6px"><div style="height:4px;width:95%;background:#ef4444;border-radius:2px"></div></div>
+            <div style="font-size:14px;font-weight:800;color:#ef4444">95%</div><div style="font-size:10px;color:#9ca3af">R$285 / R$300</div>
+          </div>
+          <div style="background:#fff;border-radius:16px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
+            <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:6px">Saúde</div>
+            <div style="height:4px;background:#e5e7eb;border-radius:2px;margin-bottom:6px"><div style="height:4px;width:24%;background:#10b981;border-radius:2px"></div></div>
+            <div style="font-size:14px;font-weight:800;color:#10b981">24%</div><div style="font-size:10px;color:#9ca3af">R$96 / R$400</div>
+          </div>
+          <div style="background:#fff;border-radius:16px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
+            <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:6px">Moradia</div>
+            <div style="height:4px;background:#e5e7eb;border-radius:2px;margin-bottom:6px"><div style="height:4px;width:86%;background:#f59e0b;border-radius:2px"></div></div>
+            <div style="font-size:14px;font-weight:800;color:#f59e0b">86%</div><div style="font-size:10px;color:#9ca3af">R$1200 / R$1400</div>
+          </div>
+        </div>
+      </div>
+      <nav class="bnav">
+        <div class="ni" onclick="goTo('dash')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg><span>Início</span></div>
+        <div class="ni" onclick="goTo('extrato')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.8" stroke-linecap="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg><span>Extrato</span></div>
+        <div style="flex:1;display:flex;justify-content:center"><div class="fab" onclick="goTo('nova')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div></div>
+        <div class="ni active"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg><span>Orçamento</span></div>
+        <div class="ni" onclick="goTo('perfil')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.8" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></div>
+      </nav>
+    </div>
+
+    <!-- ═══ S8: PERFIL ═══ -->
+    <div id="s-perfil" class="screen" style="background:#f2f4f3">
+      <div style="background:#fff;border-bottom:1px solid #f0f0f0;flex-shrink:0">
+        <div class="sb" style="color:#111827"><span class="time">9:41</span><div class="icons"><svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#111827"/><rect x="5" y="5" width="3" height="7" rx="1" fill="#111827"/><rect x="10" y="2" width="3" height="10" rx="1" fill="#111827"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#111827"/></svg><svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 9.5 a.8.8 0 1 0 .01 0z" fill="#111827"/><path d="M4.5 7 Q8 3.5 11.5 7" stroke="#111827" stroke-width="1.4" fill="none" stroke-linecap="round"/><path d="M2 4.5 Q8 -1 14 4.5" stroke="#111827" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg><svg width="27" height="13" viewBox="0 0 27 13"><rect x=".6" y=".6" width="22.8" height="11.8" rx="3.2" stroke="#111827" stroke-width="1.2" fill="none"/><rect x="2" y="2" width="18" height="9" rx="2" fill="#111827"/><path d="M24.5 4.3 C26 4.3 26 8.7 24.5 8.7" stroke="#111827" stroke-width="1.1" fill="none" stroke-linecap="round"/></svg></div></div>
+        <div style="padding:0 20px 16px"><div style="font-size:24px;font-weight:900;color:#111827">Perfil</div></div>
+      </div>
+      <div class="scroll" style="padding:16px">
+        <div style="background:linear-gradient(135deg,#064e3b,#10b981);border-radius:20px;padding:20px;margin-bottom:14px;display:flex;align-items:center;gap:16px;box-shadow:0 6px 24px rgba(16,185,129,.4)">
+          <div style="width:60px;height:60px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;font-weight:800;border:2px solid rgba(255,255,255,.3);flex-shrink:0">SH</div>
+          <div><div style="font-size:17px;font-weight:800;color:#fff">Usuário Demo</div><div style="font-size:13px;color:rgba(255,255,255,.7)">demo@fincontrol.app</div><div style="display:inline-block;background:rgba(255,255,255,.2);color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-top:6px;border:1px solid rgba(255,255,255,.3)">✦ Conta Pro</div></div>
+        </div>
+        <div style="background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:14px">
+          <div onclick="alert('Notificações: configuração disponível no MVP')" style="display:flex;align-items:center;gap:14px;padding:15px 16px;border-bottom:1px solid #f9fafb;cursor:pointer">
+            <div style="width:40px;height:40px;border-radius:12px;background:#d1fae5;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
+            <div style="flex:1"><div style="font-size:14px;font-weight:600;color:#111827">Notificações</div><div style="font-size:12px;color:#6b7280">Alertas de orçamento ativos</div></div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2.2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+          </div>
+          <div onclick="alert('Carteiras: 2 cartões cadastrados — disponível no MVP')" style="display:flex;align-items:center;gap:14px;padding:15px 16px;border-bottom:1px solid #f9fafb;cursor:pointer">
+            <div style="width:40px;height:40px;border-radius:12px;background:#d1fae5;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M2 11h20"/></svg></div>
+            <div style="flex:1"><div style="font-size:14px;font-weight:600;color:#111827">Carteiras</div><div style="font-size:12px;color:#6b7280">2 cartões cadastrados</div></div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2.2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+          </div>
+          <div onclick="alert('Exportar: disponível no MVP com download CSV real')" style="display:flex;align-items:center;gap:14px;padding:15px 16px;border-bottom:1px solid #f9fafb;cursor:pointer">
+            <div style="width:40px;height:40px;border-radius:12px;background:#d1fae5;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></div>
+            <div style="flex:1"><div style="font-size:14px;font-weight:600;color:#111827">Exportar Dados</div><div style="font-size:12px;color:#6b7280">Resumo financeiro do mês</div></div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2.2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+          </div>
+          <div onclick="alert('Categorias: personalização disponível no MVP')" style="display:flex;align-items:center;gap:14px;padding:15px 16px;cursor:pointer">
+            <div style="width:40px;height:40px;border-radius:12px;background:#d1fae5;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="12" y1="18" x2="12" y2="18"/></svg></div>
+            <div style="flex:1"><div style="font-size:14px;font-weight:600;color:#111827">Categorias</div><div style="font-size:12px;color:#6b7280">Personalizar categorias</div></div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2.2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+          </div>
+        </div>
+        <button onclick="goTo('login')" style="width:100%;background:#fee2e2;color:#ef4444;border:none;border-radius:14px;padding:16px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">Sair da conta</button>
+      </div>
+      <nav class="bnav">
+        <div class="ni" onclick="goTo('dash')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg><span>Início</span></div>
+        <div class="ni" onclick="goTo('extrato')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.8" stroke-linecap="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg><span>Extrato</span></div>
+        <div style="flex:1;display:flex;justify-content:center"><div class="fab" onclick="goTo('nova')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div></div>
+        <div class="ni" onclick="goTo('orc')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg><span>Orçamento</span></div>
+        <div class="ni active"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></div>
+      </nav>
+    </div>
+
+  </div><!-- /phone -->
+
+  <!-- Nav buttons -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:430px">
+    <button onclick="goTo('login')"  style="background:#10b981;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:.5px">LOGIN</button>
+    <button onclick="goTo('esqueci')" style="background:#6b7280;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:.5px">ESQUECI SENHA</button>
+    <button onclick="goTo('criar')"  style="background:#6b7280;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:.5px">CRIAR CONTA</button>
+    <button onclick="goTo('dash')"   style="background:#064e3b;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:.5px">DASHBOARD</button>
+    <button onclick="goTo('nova')"   style="background:#064e3b;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:.5px">NOVA TRANSAÇÃO</button>
+    <button onclick="goTo('extrato')" style="background:#064e3b;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:.5px">EXTRATO</button>
+    <button onclick="goTo('orc')"    style="background:#064e3b;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:.5px">ORÇAMENTOS</button>
+    <button onclick="goTo('perfil')" style="background:#064e3b;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:.5px">PERFIL</button>
+  </div>
+  <div class="app-label">clique nos botões ou interaja com a tela para navegar</div>
+</div>
+
+<script>
+function goTo(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('s-'+id).classList.add('active');
+}
+function setTab(t){
+  const bd=document.getElementById('tab-d'), br=document.getElementById('tab-r');
+  const disp=document.getElementById('val-disp'), badge=document.getElementById('val-badge');
+  if(t==='d'){
+    bd.className='tab desp on'; br.className='tab rec';
+    disp.style.background='#111827'; badge.textContent='— SAÍDA'; badge.style.background='#ef4444';
+  } else {
+    br.className='tab rec on'; bd.className='tab desp';
+    disp.style.background='#064e3b'; badge.textContent='+ ENTRADA'; badge.style.background='#10b981';
+  }
+}
+</script>
+</body>
+</html>
